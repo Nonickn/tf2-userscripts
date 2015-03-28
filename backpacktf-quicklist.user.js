@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         backpack.tf Quick Listing
 // @namespace    http://steamcommunity.com/id/caresx/
-// @version      1.0
+// @version      1.0.1
 // @description  Quickly list your items on backpack.tf Classifieds
 // @author       cares
 // @match        *://backpack.tf/profiles/*
@@ -113,8 +113,7 @@ $(function () {
     }
     
     function buttonValue(elem) {
-        var idx = $(".ql-button-value-idx");
-        if (idx.length) return values[idx.data('idx')];
+        if (elem.is(".ql-button-value-idx")) return values[elem.data('idx')];
         
         return {
             metal: +(Math.abs(parseFloat(elem.find('.ql-button-value-metal').val())).toFixed(2)) || 0,
