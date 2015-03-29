@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         backpack.tf Quick Listing
 // @namespace    http://steamcommunity.com/id/caresx/
-// @version      1.0.3
+// @version      1.0.4
 // @description  Quickly list your items on backpack.tf Classifieds
 // @author       cares
 // @match        *://backpack.tf/profiles/*
@@ -112,7 +112,8 @@ $(function () {
         
         // id: current item id
         $.post("http://backpack.tf/classifieds/add/" + id, payload, function (page) {
-            var ok = /<i class="fa fa-check-circle"><\/i> Your listing was posted successfully. <\/div>/.test(page);
+            var ok = /<i class="fa fa-check-circle"><\/i> Your listing was posted successfully. <\/div>/.test(page),
+                item = $('[data-id="' + id + '"]');
             
             item.css('opacity', 0.6).data('can-sell', 0)
                 .find('.equipped').html(ok ? '<i class="fa fa-tag"></i> ' + qlFormatValue(value, false) : '<i class="fa fa-exclamation-circle" style="color:red"></i>');
