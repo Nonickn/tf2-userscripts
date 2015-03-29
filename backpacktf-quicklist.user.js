@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         backpack.tf Quick Listing
 // @namespace    http://steamcommunity.com/id/caresx/
-// @version      1.0.1
+// @version      1.0.3
 // @description  Quickly list your items on backpack.tf Classifieds
 // @author       cares
 // @match        *://backpack.tf/profiles/*
@@ -117,6 +117,7 @@ $(function () {
             item.css('opacity', 0.6).data('can-sell', 0)
                 .find('.equipped').html(ok ? '<i class="fa fa-tag"></i> ' + qlFormatValue(value, false) : '<i class="fa fa-exclamation-circle" style="color:red"></i>');
             
+            if (!ok && !confirm("Error occured, continue listing?")) return;
             if (then) then();
         });
     }
@@ -161,8 +162,8 @@ $(function () {
         return '<div class="ql-button-value-idx" data-idx="' + idx + '">'
             + '<label>Value</label> <a class="btn btn-primary btn-xs ql-action-button" data-action="select" style="margin-bottom: 3px">Select</a>'
             + '<br> ' + qlFormatValue(value, false)
-            + '<br><div style="display: inline-block; padding-bottom: 3px;"><label>Message </label></div><br>'
-            + '<div style="margin-bottom: 15px;">' + (sanitize(value.message) || "(none)") + '</div>'
+            + '<br><div style="display: inline-block; padding-top: 4px;"><label>Message </label></div><br>'
+            + '<div class="ql-select-msg" style="margin-bottom: 8px;">' + (sanitize(value.message) || "(none)") + '</div>'
             + '</div>';
     }
     
@@ -197,6 +198,8 @@ $(function () {
         
         modal("Select Quicklist", html, '');
         $("#ql-cloned-batch").html(currentSelection().clone());
+        $("#ql-button-listing .ql-select-msg").last().css('margin-bottom', '-8px');
+        $('.modal-footer').remove();
     }
     
     if (!$('#bp-custom-actions').length) {
