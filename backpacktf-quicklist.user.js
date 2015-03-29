@@ -72,17 +72,33 @@ $(function () {
     function listSelection(value) {
         var selection = currentSelection(),
             sample = findSample(),
-            half = selection.length / 2;
+            half = selection.length / 2,
+            items = [],
+            at = 0;
         
         clearSelection();
         updateClearSelectionState();
         selection.each(function (idx) {
             if (idx >= half) return;
-            listItem($(this).data('id'), value, sample);
+            
+            var $this = $(this);
+            items.push($this.data('id'));
+            
+            $this.find('.equipped').html('<i class="fa fa-spin fa-spinner"></i>');
         });
+        
+        function next() {
+            if (!items[at]) return;
+            listItem(items[at], value, sample, function () {
+                at += 1;
+                next();
+            });
+        }
+        
+        next();
     }
     
-    function listItem(id, value, sample) {
+    function listItem(id, value, sample, then) {
         var payload = {
             details: value.message,
             offers: +!!sample.data('listing-offers-url'), // value -> bool -> int
@@ -95,9 +111,13 @@ $(function () {
         };
         
         // id: current item id
-        $.post("http://backpack.tf/classifieds/add/" + id, payload, function () {
-            $('[data-id="' + id + '"]').css('opacity', 0.6).data('can-sell', 0)
-            .find('.equipped').html('<i class="fa fa-tag"></i> ' + qlFormatValue(value, false));
+        $.post("http://backpack.tf/classifieds/add/" + id, payload, function (page) {
+            var ok = /<i class="fa fa-check-circle"><\/i> Your listing was posted successfully. <\/div>/.test(page);
+            
+            item.css('opacity', 0.6).data('can-sell', 0)
+                .find('.equipped').html(ok ? '<i class="fa fa-tag"></i> ' + qlFormatValue(value, false) : '<i class="fa fa-exclamation-circle" style="color:red"></i>');
+            
+            if (then) then();
         });
     }
     
@@ -122,22 +142,27 @@ $(function () {
             message: elem.find('.ql-button-value-message').val() || ""
         };
     }
-
+    
     function quicklistBtnHtml(metal, keys, earbuds, message) {
-        return '<div class="ql-button-values">'
-            + '<label>Metal</label> <input type="text" class="ql-button-value-metal" size="3" value="' + metal + '"> '
-            + '<label>Keys</label> <input type="text" class="ql-button-value-keys" size="3" value="' + keys + '"> '
-            + '<label>Earbuds</label> <input type="text" class="ql-button-value-earbuds" size="3" value="' + earbuds + '"> '
-            + '<a class="btn btn-primary btn-xs ql-action-button" data-action="remove">Remove</a><br>'
-            + '<label>Message </label> <input type="text" class="ql-button-value-message" size="65" value="' + sanitize(message).replace(/"/g, "&quot;") + '">'
+        return '<div class="ql-button-values form-inline">'
+            + '<div style="display: inline-block; padding-left: 3px;"><label>Metal</label></div>'
+            + ' <div style="display: inline-block; padding-left: 37px;"><label>Keys</label></div>'
+            + ' <div style="display: inline-block; padding-left: 42px;"><label>Earbuds</label></div> '
+            + '<a class="btn btn-primary btn-xs ql-action-button" data-action="remove" style="margin-left: 15px;">Remove</a><br>'
+            + '<input type="number" class="ql-button-value-metal form-control" style="width: 70px; height: 32px; margin-bottom: 3px; margin-top: -2px;" value="' + metal + '"> '
+            + '<input type="number" class="ql-button-value-keys form-control" style="width: 70px; height: 32px; margin-bottom: 3px; margin-top: -2px;" value="' + keys + '"> '
+            + '<input type="number" class="ql-button-value-earbuds form-control" style="width: 70px; height: 32px; margin-bottom: 3px; margin-top: -2px;" value="' + earbuds + '"> '
+            + '<br><label style="margin-top: 4px; margin-left: 3px;">Message </label> '
+            + '<input type="text" class="ql-button-value-message form-control" value="' + sanitize(message).replace(/"/g, "&quot;") + '" style="height: 32px; margin-bottom: 15px;">'
             + '</div>';
     }
     
     function quicklistSelectHtml(value, idx) {
         return '<div class="ql-button-value-idx" data-idx="' + idx + '">'
-            + '<label>Value</label> ' + qlFormatValue(value, false)
-            + ' <a class="btn btn-primary btn-xs ql-action-button" data-action="select">Select</a><br>'
-            + '<label>Message </label> ' + (sanitize(value.message) || "(none)")
+            + '<label>Value</label> <a class="btn btn-primary btn-xs ql-action-button" data-action="select" style="margin-bottom: 3px">Select</a>'
+            + '<br> ' + qlFormatValue(value, false)
+            + '<br><div style="display: inline-block; padding-bottom: 3px;"><label>Message </label></div><br>'
+            + '<div style="margin-bottom: 15px;">' + (sanitize(value.message) || "(none)") + '</div>'
             + '</div>';
     }
     
@@ -150,7 +175,7 @@ $(function () {
             html += quicklistBtnHtml(vals.metal, vals.keys, vals.earbuds, vals.message);
         });
         html += "</div>"
-        + '<br><a class="btn btn-default ql-action-button" data-action="add">Add</a>';
+        + '<a class="btn btn-default ql-action-button" data-action="add">Add</a>';
         
         modal("Modify Quicklists", html, '<a class="btn btn-default btn-primary ql-action-button" data-action="save">Save & Reload</a>');
     }
@@ -161,9 +186,8 @@ $(function () {
         }
         
         var html = "<p>Select a quicklist for this batch of items:</p>"
-        + "<div id='ql-cloned-batch'></div>"
-        + "<br><br><br><br><br>"
-        + "<div id='ql-button-listing'>";
+        + "<div id='ql-cloned-batch' class='row'></div>"
+        + "<div id='ql-button-listing' class='row'>";
         
         values.forEach(function (vals, idx) {
             html += quicklistSelectHtml(vals, idx);
