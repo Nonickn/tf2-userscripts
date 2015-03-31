@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         backpack.tf Quick Listing
 // @namespace    http://steamcommunity.com/id/caresx/
-// @version      1.0.5
+// @version      1.1.0
 // @description  Quickly list your items on backpack.tf Classifieds
 // @author       cares
 // @match        *://backpack.tf/profiles/*
