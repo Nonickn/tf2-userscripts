@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         backpack.tf Quick Listing
 // @namespace    http://steamcommunity.com/id/caresx/
-// @version      1.0.4
+// @version      1.0.5
 // @description  Quickly list your items on backpack.tf Classifieds
 // @author       cares
 // @match        *://backpack.tf/profiles/*
@@ -42,7 +42,7 @@ $(function () {
         return str.join(', ');
     }
     
-    function createDetails(item) {
+    function _createDetails(item) {
         var d = cd(item),
             qs = $("<dd class='popover-btns'>");
         
@@ -123,6 +123,10 @@ $(function () {
         });
     }
     
+    function escapeHtml(message) {
+        return sanitize(message).replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+    }
+                                                                 
     function collectButtonValues() {
         var elems = $('.ql-button-values'),
             values = [];
@@ -135,7 +139,7 @@ $(function () {
     }
     
     function buttonValue(elem) {
-        if (elem.is(".ql-button-value-idx")) return values[elem.data('idx')];
+        //if (elem.is(".ql-button-value-idx")) return values[elem.data('idx')];
         
         return {
             metal: +(Math.abs(parseFloat(elem.find('.ql-button-value-metal').val())).toFixed(2)) || 0,
@@ -145,27 +149,31 @@ $(function () {
         };
     }
     
-    function quicklistBtnHtml(metal, keys, earbuds, message) {
+    function copyButtonValues(value, elem) {
+        var i;
+        
+        for (i in value) {
+            if (!value.hasOwnProperty(i)) continue;
+            elem.find('.ql-button-value-' + i).val(value[i] || (i === "message" ? "" : "0"));
+        }
+    }
+    
+    function quicklistBtnHtml(metal, keys, earbuds, message, remove) {
         return '<div class="ql-button-values form-inline">'
             + '<div style="display: inline-block; padding-left: 3px;"><label>Metal</label></div>'
             + ' <div style="display: inline-block; padding-left: 37px;"><label>Keys</label></div>'
             + ' <div style="display: inline-block; padding-left: 42px;"><label>Earbuds</label></div> '
-            + '<a class="btn btn-primary btn-xs ql-action-button" data-action="remove" style="margin-left: 15px;">Remove</a><br>'
+            + (remove !== false ? '<a class="btn btn-primary btn-xs ql-action-button" data-action="remove" style="margin-left: 15px;">Remove</a>' : '') + '<br>'
             + '<input type="number" class="ql-button-value-metal form-control" style="width: 70px; height: 32px; margin-bottom: 3px; margin-top: -2px;" value="' + metal + '"> '
             + '<input type="number" class="ql-button-value-keys form-control" style="width: 70px; height: 32px; margin-bottom: 3px; margin-top: -2px;" value="' + keys + '"> '
             + '<input type="number" class="ql-button-value-earbuds form-control" style="width: 70px; height: 32px; margin-bottom: 3px; margin-top: -2px;" value="' + earbuds + '"> '
             + '<br><label style="margin-top: 4px; margin-left: 3px;">Message </label> '
-            + '<input type="text" class="ql-button-value-message form-control" value="' + sanitize(message).replace(/"/g, "&quot;") + '" style="height: 32px; margin-bottom: 15px;">'
+            + '<input type="text" class="ql-button-value-message form-control" value="' + escapeHtml(message) + '" style="height: 32px; margin-bottom: 15px;">'
             + '</div>';
     }
     
     function quicklistSelectHtml(value, idx) {
-        return '<div class="ql-button-value-idx" data-idx="' + idx + '">'
-            + '<label>Value</label> <a class="btn btn-primary btn-xs ql-action-button" data-action="select" style="margin-bottom: 3px">Select</a>'
-            + '<br> ' + qlFormatValue(value, false)
-            + '<br><div style="display: inline-block; padding-top: 4px;"><label>Message </label></div><br>'
-            + '<div class="ql-select-msg" style="margin-bottom: 8px;">' + (sanitize(value.message) || "(none)") + '</div>'
-            + '</div>';
+        return '<a class="btn btn-primary ql-button-value-idx ql-action-button" data-action="select" data-idx="' + idx + '" style="margin-right: 3px;">' + qlFormatValue(value, true) + '</a>';
     }
     
     function modifyQuicklists() {
@@ -187,7 +195,11 @@ $(function () {
             return alert("Create a regular listing first, so the trade offer url can be copied.");
         }
         
-        var html = "<p>Select a quicklist for this batch of items:</p>"
+        if (!currentSelection().length) {
+            return alert("No listable items in this selection.");
+        }
+        
+        var html = "<p>Select a quicklist for this batch of items, or enter one manually. Click on the respective button to fill in the values.</p>"
         + "<div id='ql-cloned-batch' class='row'></div>"
         + "<div id='ql-button-listing' class='row'>";
         
@@ -195,12 +207,17 @@ $(function () {
             html += quicklistSelectHtml(vals, idx);
         });
         
-        html += "</div>";
+        html += "</div><br>";
+        html += quicklistBtnHtml("", "", "", "", false);
         
-        modal("Select Quicklist", html, '');
+        modal("Select Quicklist", html, '<a class="btn btn-default btn-primary ql-action-button" data-action="listbatch">List Batch</a>');
         $("#ql-cloned-batch").html(currentSelection().clone());
         $("#ql-button-listing .ql-select-msg").last().css('margin-bottom', '-8px');
-        $('.modal-footer').remove();
+        $(".ql-button-value-idx").tooltip({
+            html: false,
+            title: function () { return values[$(this).data('idx')].message || "(none)"; },
+            placement: 'top'
+        });
     }
     
     if (!$('#bp-custom-actions').length) {
@@ -211,7 +228,7 @@ $(function () {
     $('#bp-custom-modify-quicklists').click(modifyQuicklists);
     
     bppr.html(
-        '<a id="bp-custom-select-ql" class="btn btn-default btn-primary btn-xs disabled" href="##" style="margin-top: -2px;">Select quicklist</a>'
+        '<a id="bp-custom-select-ql" class="btn btn-default btn-primary btn-xs disabled" href="##" style="margin-top: -2px;">Quicklist selection</a>'
         + ' <a id="show-markdown-modal" class="btn btn-default btn-primary btn-xs" href="##" style="margin-top: -2px;">Convert to text</a>'
     );
     
@@ -236,7 +253,7 @@ $(function () {
             action = $this.data('action');
         
         if (action === 'add') {
-            $("#ql-button-listing").append(quicklistBtnHtml("", "", ""));
+            $("#ql-button-listing").append(quicklistBtnHtml("", "", "", ""));
         } else if (action === 'remove') {
             $this.parent().remove();
         } else if (action === 'save') {
@@ -247,8 +264,10 @@ $(function () {
             localStorage.setItem("bp-custom-quicklists", JSON.stringify(values));
             location.reload();
         } else if (action === 'select') {
-            $("#active-modal").modal('hide');
-            listSelection(buttonValue($this.parent()));
+            copyButtonValues(values[$(this).data('idx')], $('.ql-button-values'));
+        } else if (action === 'listbatch') {
+            listSelection(buttonValue($('.ql-button-values')));
+            $('#active-modal').modal('hide');
         }
     });
     
@@ -272,5 +291,5 @@ $(function () {
         localStorage.setItem("bp-custom-quicklists", JSON.stringify(values));
     }
     
-    window.createDetails = createDetails;
+    window.createDetails = _createDetails;
 });
