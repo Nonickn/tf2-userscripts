@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         backpack.tf Quick Listing
 // @namespace    http://steamcommunity.com/id/caresx/
-// @version      1.1.0
+// @version      1.2.0
 // @description  Quickly list your items on backpack.tf Classifieds
 // @author       cares
 // @match        *://backpack.tf/profiles/*
@@ -211,12 +211,65 @@ $(function () {
         html += quicklistBtnHtml("", "", "", "", false);
         
         modal("Select Quicklist", html, '<a class="btn btn-default btn-primary ql-action-button" data-action="listbatch">List Batch</a>');
-        $("#ql-cloned-batch").html(currentSelection().clone());
+        
+        $("#ql-cloned-batch").html(currentSelection().clone()).find('.item').addClass('ql-cloned');
         $("#ql-button-listing .ql-select-msg").last().css('margin-bottom', '-8px');
         $(".ql-button-value-idx").tooltip({
             html: false,
             title: function () { return values[$(this).data('idx')].message || "(none)"; },
             placement: 'top'
+        });
+        addItemPopovers();
+    }
+    
+    function addItemPopovers() {
+        $('.ql-cloned').mouseenter(function() {
+            var $this = $(this);
+            
+            if ($(this).parent().hasClass('item-list-links')) {
+                return;
+            }
+            
+            $(this).popover({animation: false, html: true, trigger: 'manual', placement: window.get_popover_placement, content: cd($this)});
+            setTimeout(function () {
+                if ($this.is(':hover')) {
+                    $('.popover').remove();
+                    $this.popover('show');
+                    $('.popover').css('padding', 0);
+                    
+                    $('#search-bazaar').click(function () {
+                        searchBazaar($this.data('defindex'), $this.data('quality'), $this.data('priceindex'), $this.data('craftable') == 1 ? 0 : 1, $this.data('app'));
+                    });
+                    
+                    $('#search-outpost').click(function () {
+                        searchOutpost($this.data('defindex'), $this.data('quality'), $this.data('priceindex'), $this.data('craftable') == 1 ? 0 : 1, $this.data('app'));
+                    });
+                    
+                    $('#search-lounge').click(function() {
+                        searchLounge($this.data('defindex'), $this.data('quality'));
+                    });
+                }
+            }, 300);
+        }).mouseleave(function () {
+            var $this = $(this);
+            
+            setTimeout(function () {
+                if (!$this.is(':hover') && !$('.popover').is(':hover')) {
+                    $this.popover('hide');
+                }
+            }, 100);
+        }).on('shown.bs.popover', function () {
+            $('.popover-timeago').timeago();
+        });
+        
+        $("#ql-cloned-batch").on('mouseleave', '.popover', function () {
+            var $this = $(this);
+            
+            setTimeout(function() {
+                if (!$this.is(':hover')) {
+                    $this.remove();
+                }
+            }, 300);
         });
     }
     
