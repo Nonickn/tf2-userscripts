@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         backpack rep.tf integration
 // @namespace    http://steamcommunity.com/id/caresx/
-// @version      1.1.0
+// @version      1.1.1
 // @description  rep.tf integration for backpack.tf
 // @author       cares
 // @match        *://backpack.tf/*
@@ -22,16 +22,18 @@ $(function () {
         steamid, repCache;
     
     function generateMiniProfile(element) {
-        return rep_gmp(element)
-               .find('.stm-tf2outpost').parent().html('<i class=\"stm stm-tf2outpost\"></i> Outpost')
-               .find('.stm-bazaar-tf').parent().html('<i class=\"stm stm-bazaar-tf\"></i> Bazaar')
-               .find('.mini-profile-third-party').append(' <a class=\"btn btn-default btn-xs\" target=\"_blank\" href=\"http://rep.tf/'+ element.attr('data-id')+'\">'
+        var profile = rep_gmp(element);
+        
+        profile.find('.stm-tf2outpost').parent().html('<i class=\"stm stm-tf2outpost\"></i> Outpost')
+        profile.find('.stm-bazaar-tf').parent().html('<i class=\"stm stm-bazaar-tf\"></i> Bazaar')
+        profile.find('.mini-profile-third-party').append(' <a class=\"btn btn-default btn-xs\" target=\"_blank\" href=\"http://rep.tf/'+ element.attr('data-id')+'\">'
                                                          + '<i class=\"fa fa-check-square\"></i> RepTF</a>');
+        return profile;
     }
     
     // Mini profile - enabled on all pages
     scr.textContent = 'var rep_gmp = generateMiniProfile;'
-    + generateMiniProfile;
+    + "window.generateMiniProfile = " + generateMiniProfile;
     
     (document.body || document.head || document.documentElement).appendChild(scr);
     
