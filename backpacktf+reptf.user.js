@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         backpack rep.tf integration
 // @namespace    http://steamcommunity.com/id/caresx/
-// @version      1.0.0
+// @version      1.1.0
 // @description  rep.tf integration for backpack.tf
 // @author       cares
 // @match        *://backpack.tf/*
@@ -12,33 +12,60 @@
 // ==/UserScript==
 
 $(function () {
+    var scr = document.createElement('script'),
+        groups = [],
+        bans = [],
+        bansShown = false,
+        cachePruneTime = 60 * 30 * 1000, // 30 minutes (in ms)
+        banIssuers = ["steamBans", "opBans", "stfBans", "bzBans", "ppmBans", "bbgBans", "tf2tBans", "bptfBans", "srBans", "mctBans"],
+        reptfSuccess = true,
+        steamid, repCache;
+    
+    function generateMiniProfile(element) {
+        return rep_gmp(element)
+               .find('.stm-tf2outpost').parent().html('<i class=\"stm stm-tf2outpost\"></i> Outpost')
+               .find('.stm-bazaar-tf').parent().html('<i class=\"stm stm-bazaar-tf\"></i> Bazaar')
+               .find('.mini-profile-third-party').append(' <a class=\"btn btn-default btn-xs\" target=\"_blank\" href=\"http://rep.tf/'+ element.attr('data-id')+'\">'
+                                                         + '<i class=\"fa fa-check-square\"></i> RepTF</a>');
+    }
+    
     // Mini profile - enabled on all pages
-    var scr = document.createElement('script');
-    scr.textContent = ''
-    + 'var rep_gmp = generateMiniProfile;'
-    + 'generateMiniProfile = function (element) {'
-    + 'var profile = rep_gmp(element);'
-    + "profile.find('.stm-tf2outpost').parent().html('<i class=\"stm stm-tf2outpost\"></i> Outpost');"
-    + "profile.find('.stm-bazaar-tf').parent().html('<i class=\"stm stm-bazaar-tf\"></i> Bazaar');"
-    + "profile.find('.mini-profile-third-party').append(' <a class=\"btn btn-default btn-xs\" target=\"_blank\" href=\"http://rep.tf/'+ element.attr('data-id')+'\"><i class=\"fa fa-check-square\"></i> RepTF</a>');"
-    + 'return profile;'
-    + '}';
+    scr.textContent = 'var rep_gmp = generateMiniProfile;'
+    + generateMiniProfile;
     
     (document.body || document.head || document.documentElement).appendChild(scr);
     
     // RepTF checks on profiles
-    var steamid = ($('.profile .avatar-container a')[0].href || "").replace(/\D/g, '');
+    steamid = $('.profile .avatar-container a')[0];
     if (!steamid) return;
     
-    // Don't modify this.
-    var groups = [],
-        bans = [],
-        bansShown = false;
+    steamid = steamid.href.replace(/\D/g, '');
+    
+    $('.btn > .stm-tf2outpost').parent().after(' <a class="btn btn-primary btn-xs" href="http://rep.tf/' + steamid + '" target="_blank"><i class="fa fa-check-square"></i> rep.tf</a>');
+    $('small:contains(Community)').html('Community <a id="showrep" style="font-size: 14px; cursor: pointer;">+</a>');
+    
+    $('#showrep').on('click', function () {
+        var $this = $(this),
+            open = $this.text() === '+';
+        
+        if (open && !bansShown) {
+            showBansModal();
+            bansShown = true;
+        }
+        
+        $this.text(open ? '-' : '+');
+        $('.rep-entry').toggle(open);
+    });
+    
+    repCache = JSON.parse(localStorage.getItem("custom-reptf") || "{}");
+    
+    addHtml();
+    checkCache();
     
     function spinner(name) {
         var id = name.replace(/\.|-/g, '').toLowerCase();
         groups.push(""
-            + "<li id='" + id + "-li' class='rep-entry' style='display: none'><small>" + name + "</small>"
+            + "<li id='" + id + "ban' class='rep-entry' style='display: none'><small>" + name + "</small>"
             + "<span class='label pull-right label-default rep-tooltip' data-placement='bottom'>"
             + "<i class='fa fa-spin fa-spinner'></i></span></li>");
     }
@@ -56,38 +83,36 @@ $(function () {
     }
     
     function ban(name, obj) {
-        if (!obj.banned) return;
-        
-        if (obj.banned === "bad") {
-            bans.push({name: name, reason: obj.message});
-        }
-        
         var id = name.replace(/\.|-/g, '').toLowerCase(),
-            status = $('#' + id + '-li');
+            status = $('#' + id + 'ban').find('.rep-tooltip');
         
-        if (!status.length) return;
+        status.removeClass('label-default');
         
-        status.find('.rep-tooltip')
-        	.removeClass('label-default')
-        	.addClass("label-" + ({good: "success", bad: "danger"}[obj.banned]))
+        if (reptfSuccess) {
+            if (!obj.banned) return;
+
+            if (obj.banned === "bad") {
+                bans.push({name: name, reason: obj.message});
+            }
+            
+        	status.addClass("label-" + ({good: "success", bad: "danger"}[obj.banned]))
             .data('content', obj.message)
             .text({good: "OK", bad: "BAN"}[obj.banned]);
+        } else {
+            status.addClass("label-warning").data('content', "Ban status could not be retrieved.").text("ERR");
+        }
     }
     
-    function handleBans(response) {
-        var json = JSON.parse(response.responseText);
-        
-        if (!json.success) return;
- 
+    function showBans(json) {
         ban("SteamRep", json.srBans);
         ban("Outpost", json.opBans);
         ban("Bazaar", json.bzBans);
         ban("Backpack.tf", json.bptfBans);
         ban("Scrap.tf", json.stfBans);
         ban("PPM", json.ppmBans);
-        ban("TF2-Trader", json.tf2tBans);
-        ban("MCT", json.mctBans);
-        ban("BBG", json.bbgBans);
+        //ban("TF2-Trader", json.tf2tBans);
+        //ban("MCT", json.mctBans);
+        //ban("BBG", json.bbgBans);
         
         $('.rep-tooltip').tooltip({
             html: true,
@@ -95,7 +120,8 @@ $(function () {
                 return $(this).data('content');
             }
         });
-        $('#showrep').css('color', bans.length ? 'red' : 'green');
+        
+        $('#showrep').css('color', reptfSuccess ? (bans.length ? '#D9534F' : '#5CB85C') : '#F0AD4E');
     }
     
     function showBansModal() {
@@ -110,26 +136,60 @@ $(function () {
         unsafeWindow.modal("rep.tf bans", html);
     }
     
-    $('.btn > .stm-tf2outpost').parent().after(' <a class="btn btn-primary btn-xs" href="http://rep.tf/' + steamid + '" target="_blank"><i class="fa fa-check-square"></i> rep.tf</a>');
-    $('small:contains(Community)').html('Community <a id="showrep" style="font-size: 13px; cursor: pointer;">+</a>');
-    
-    $('#showrep').on('click', function () {
-        var $this = $(this),
-            open = $this.text() === '+';
+    function checkCache() {
+        var updated = pruneCache();
+
+        if (repCache[steamid]) {
+            showBans(repCache[steamid].json);
+            if (updated) saveCache();
+        } else {
+            updateCache();
+        }
+    }
+
+    function compactResponse(json) {
+        var compact = {success: json.success};
         
-        if (open && !bansShown) {
-            showBansModal();
-            bansShown = true;
+        banIssuers.forEach(function (issuer) {
+            compact[issuer] = {banned: json[issuer].banned, message: json[issuer].message};
+        });
+        
+        return compact;
+    }
+    
+    function updateCache() {
+        GM_xmlhttpRequest({
+            method: "POST",
+            url: "http://rep.tf/api/bans?str=" + steamid,
+            onload: function (resp) {
+                var json = compactResponse(JSON.parse(resp.responseText));
+
+                reptfSuccess = json.success;
+                repCache[steamid] = {time: Date.now(), json: json};
+                
+                showBans(json);
+                if (!reptfSuccess) saveCache();
+            }
+        });
+    }
+    
+    function saveCache() {
+        localStorage.setItem("custom-reptf", JSON.stringify(repCache));
+    }
+    
+    function pruneCache() {
+        var updated = false,
+            time, uid;
+        
+        for (uid in repCache) {
+            time = repCache[uid].time;
+            
+            if (time + cachePruneTime < Date.now()) {
+                updated = true;
+                delete repCache[uid];
+            }
         }
         
-        $this.text(open ? '-' : '+');
-        $('.rep-entry').toggle(open);
-    });
-    
-    addHtml();
-    GM_xmlhttpRequest({
-        method: "POST",
-        url: "http://rep.tf/api/bans?str=" + steamid,
-        onload: handleBans
-    });
+        return updated;
+    }
 });
