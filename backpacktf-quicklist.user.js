@@ -13,6 +13,7 @@ $(function () {
         verified = false,
         cd = window.createDetails,
         um = window.updateMargins,
+        cs = window.clearSelection,
         values;
     var currencyNames = {
         long: {
@@ -135,6 +136,11 @@ $(function () {
     function _updateMargins() {
         um();
         addSelectPage();
+    }
+    
+    function _clearSelection() {
+        cs();
+        updateSelectQuicklist();
     }
     
     function currentSelection() {
@@ -389,8 +395,7 @@ $(function () {
                     unselectItem(pageitems);
 
                     if ($('.item:not(.unselected)').length === 0) {
-                        clearSelection();
-                        updateSelectQuicklist();
+                        _clearSelection();
                         return;
                     }
                 } else {
