@@ -79,9 +79,7 @@ $(function () {
         }
     });
     
-    $('.item:not(.spacer)').click(function () {
-        $("#bp-custom-select-ql").toggleClass("disabled", !selection_mode);
-    });
+    $('.item:not(.spacer)').click(updateSelectQuicklist);
     
     $("#bp-custom-select-ql").click(function () {
         if (selection_mode) selectQuicklist();
@@ -392,15 +390,22 @@ $(function () {
 
                     if ($('.item:not(.unselected)').length === 0) {
                         clearSelection();
+                        updateSelectQuicklist();
                         return;
                     }
                 } else {
                     selectItems(pageitems);
+                    updateSelectQuicklist();
                 }
             } else {
                 unselectItem($('.item'));
                 selectItems(pageitems);
+                updateSelectQuicklist();
             }
         }); 
+    }
+    
+    function updateSelectQuicklist() {
+        $("#bp-custom-select-ql").toggleClass("disabled", !selection_mode);
     }
 });
