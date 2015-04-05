@@ -101,6 +101,7 @@ $(function () {
     addSelectPage();
     window.createDetails = _createDetails;
     window.updateMargins = _updateMargins;
+    window.clearSelection = _clearSelection;
 
     function l(str) {
         return str.split(" ");
