@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         backpack.tf Quick Listing
 // @namespace    http://steamcommunity.com/id/caresx/
-// @version      1.2.0
+// @version      1.3.0
 // @description  Quickly list your items on backpack.tf Classifieds
 // @author       cares
 // @match        *://backpack.tf/profiles/*
@@ -12,6 +12,7 @@ $(function () {
     var userId = $('a[href^="/logout"]').attr('href').replace(/(.*?=)/, ''),
         verified = false,
         cd = window.createDetails,
+        um = window.updateMargins,
         values;
     var currencyNames = {
         long: {
@@ -27,6 +28,81 @@ $(function () {
     };
     var bppr = $('#backpack').closest('.panel').find('.pull-right');
     
+    if (!$('#bp-custom-actions').length) {
+        $('#profile-dropdown-container .dropdown-menu .divider').eq(1).after('<li class="divider" id="bp-custom-actions"></li>');
+    }
+    
+    $('#bp-custom-actions').before('<li id="bp-custom-modify-quicklists"><a href="##"><i class="fa fa-fw fa-tag"></i> Modify Quicklists</a></li>');
+    $('#bp-custom-modify-quicklists').click(modifyQuicklists);
+    
+    bppr.html(
+        '<a id="bp-custom-select-ql" class="btn btn-default btn-primary btn-xs disabled" href="##" style="margin-top: -2px;">Quicklist selection</a>'
+        + ' <a id="show-markdown-modal" class="btn btn-default btn-primary btn-xs" href="##" style="margin-top: -2px;">Convert to text</a>'
+    );
+    
+    $(document).on('click', '.quicklist', function () {
+        var $this = $(this),
+            value = values[$this.data('value-idx')],
+            id = $this.data('id'),
+            sample = findSample();
+        
+        if (!verified) {
+            if (!confirm("Enable quicklisting? Refresh the page to disable.")) return;
+            verified = true;
+        }
+        
+        if (!sample.length) {
+            return alert("Create a regular listing first, so the trade offer url can be copied.");
+        }
+        
+        listItem(id, value, sample);
+    }).on('click', '.ql-action-button', function () {
+        var $this = $(this),
+            action = $this.data('action');
+        
+        if (action === 'add') {
+            $("#ql-button-listing").append(quicklistBtnHtml("", "", "", ""));
+        } else if (action === 'remove') {
+            $this.parent().remove();
+        } else if (action === 'save') {
+            values = collectButtonValues().filter(function (v) {
+                return (v.metal || v.keys || v.earbuds) && isFinite(v.metal) && isFinite(v.keys) && isFinite(v.earbuds);
+            });
+            
+            localStorage.setItem("bp-custom-quicklists", JSON.stringify(values));
+            location.reload();
+        } else if (action === 'select') {
+            copyButtonValues(values[$(this).data('idx')], $('.ql-button-values'));
+        } else if (action === 'listbatch') {
+            listSelection(buttonValue($('.ql-button-values')));
+            $('#active-modal').modal('hide');
+        }
+    });
+    
+    $('.item:not(.spacer)').click(function () {
+        $("#bp-custom-select-ql").toggleClass("disabled", !selection_mode);
+    });
+    
+    $("#bp-custom-select-ql").click(function () {
+        if (selection_mode) selectQuicklist();
+    });
+    
+    var customlists = localStorage.getItem("bp-custom-quicklists");
+    if (customlists) {
+        values = JSON.parse(customlists);
+    } else {
+        values = [
+            {metal: 0.05, keys: 0, earbuds: 0, message: ""},
+            {metal: 0.11, keys: 0, earbuds: 0, message: ""},
+            {metal: 0, keys: 1, earbuds: 0, message: ""}
+        ];
+        localStorage.setItem("bp-custom-quicklists", JSON.stringify(values));
+    }
+    
+    addSelectPage();
+    window.createDetails = _createDetails;
+    window.updateMargins = _updateMargins;
+
     function l(str) {
         return str.split(" ");
     }
@@ -56,6 +132,11 @@ $(function () {
         
         d.append(qs);
         return d;
+    }
+    
+    function _updateMargins() {
+        um();
+        addSelectPage();
     }
     
     function currentSelection() {
@@ -139,8 +220,6 @@ $(function () {
     }
     
     function buttonValue(elem) {
-        //if (elem.is(".ql-button-value-idx")) return values[elem.data('idx')];
-        
         return {
             metal: +(Math.abs(parseFloat(elem.find('.ql-button-value-metal').val())).toFixed(2)) || 0,
             keys: Math.abs(parseInt(elem.find('.ql-button-value-keys').val(), 10)) || 0,
@@ -273,76 +352,55 @@ $(function () {
         });
     }
     
-    if (!$('#bp-custom-actions').length) {
-        $('#profile-dropdown-container .dropdown-menu .divider').eq(1).after('<li class="divider" id="bp-custom-actions"></li>');
-    }
-    
-    $('#bp-custom-actions').before('<li id="bp-custom-modify-quicklists"><a href="##"><i class="fa fa-fw fa-tag"></i> Modify Quicklists</a></li>');
-    $('#bp-custom-modify-quicklists').click(modifyQuicklists);
-    
-    bppr.html(
-        '<a id="bp-custom-select-ql" class="btn btn-default btn-primary btn-xs disabled" href="##" style="margin-top: -2px;">Quicklist selection</a>'
-        + ' <a id="show-markdown-modal" class="btn btn-default btn-primary btn-xs" href="##" style="margin-top: -2px;">Convert to text</a>'
-    );
-    
-    $(document).on('click', '.quicklist', function () {
-        var $this = $(this),
-            value = values[$this.data('value-idx')],
-            id = $this.data('id'),
-            sample = findSample();
-        
-        if (!verified) {
-            if (!confirm("Enable quicklisting? Refresh the page to disable.")) return;
-            verified = true;
-        }
-        
-        if (!sample.length) {
-            return alert("Create a regular listing first, so the trade offer url can be copied.");
-        }
-        
-        listItem(id, value, sample);
-    }).on('click', '.ql-action-button', function () {
-        var $this = $(this),
-            action = $this.data('action');
-        
-        if (action === 'add') {
-            $("#ql-button-listing").append(quicklistBtnHtml("", "", "", ""));
-        } else if (action === 'remove') {
-            $this.parent().remove();
-        } else if (action === 'save') {
-            values = collectButtonValues().filter(function (v) {
-                return (v.metal || v.keys || v.earbuds) && isFinite(v.metal) && isFinite(v.keys) && isFinite(v.earbuds);
-            });
+    function addSelectPage() {
+        function selectItems(items) {
+            selection_mode = true;
+            selectItem(items);
             
-            localStorage.setItem("bp-custom-quicklists", JSON.stringify(values));
-            location.reload();
-        } else if (action === 'select') {
-            copyButtonValues(values[$(this).data('idx')], $('.ql-button-values'));
-        } else if (action === 'listbatch') {
-            listSelection(buttonValue($('.ql-button-values')));
-            $('#active-modal').modal('hide');
+            updateClearSelectionState();
+            calculateValue();
         }
-    });
+        
+        $('.pagenum').each(function () {
+            var $this = $(this),
+                label = $this.find('.label'),
+                page = label[0].id.replace('page', '');
+
+            label.after('<span class="btn btn-primary btn-xs pull-right ql-select-page" data-page="' + page + '" style="margin-right: 16px;">Select Page</span>');
+        });
     
-    $('.item:not(.spacer)').click(function () {
-        $("#bp-custom-select-ql").toggleClass("disabled", !selection_mode);
-    });
-    
-    $("#bp-custom-select-ql").click(function () {
-        if (selection_mode) selectQuicklist();
-    });
-    
-    var customlists = localStorage.getItem("bp-custom-quicklists");
-    if (customlists) {
-        values = JSON.parse(customlists);
-    } else {
-        values = [
-            {metal: 0.05, keys: 0, earbuds: 0, message: ""},
-            {metal: 0.11, keys: 0, earbuds: 0, message: ""},
-            {metal: 0, keys: 1, earbuds: 0, message: ""},
-        ];
-        localStorage.setItem("bp-custom-quicklists", JSON.stringify(values));
+        $('.ql-select-page').click(function () {
+            var page = +this.dataset.page - 1,
+                start = page * 50 + 1,
+                end = page * 50 + 50,
+                pageitems;
+
+            if (page >= 0) {
+                pageitems = $('.item:not(.spacer)').filter(function () {
+                    var slot = this.dataset.bpslot;
+                    return slot >= start && slot <= end;
+                });
+            } else { // new items
+                pageitems = $('#newlist .item');
+            }
+
+            if (!pageitems.length) return;
+
+            if (selection_mode) {
+                if (pageitems.length === pageitems.not('.unselected').length) { // all == selected
+                    unselectItem(pageitems);
+
+                    if ($('.item:not(.unselected)').length === 0) {
+                        clearSelection();
+                        return;
+                    }
+                } else {
+                    selectItems(pageitems);
+                }
+            } else {
+                unselectItem($('.item'));
+                selectItems(pageitems);
+            }
+        }); 
     }
-    
-    window.createDetails = _createDetails;
 });
