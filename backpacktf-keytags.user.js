@@ -2,7 +2,7 @@
 // @name         backpack.tf key tags
 // @namespace    http://steamcommunity.com/id/caresx/
 // @version      1.0.0
-// @description  Replaces bud pricetags on items with the key equivalent.
+// @description  Replaces bud price tags on items with the key equivalent.
 // @author       cares
 // @match        *://backpack.tf/*
 // @grant        none
